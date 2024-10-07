@@ -1,0 +1,18 @@
+/****************************************************************************
+* I declare that this assignment is my own work in accordance with the Seneca Academic
+* Policy. No part of this assignment has been copied manually or electronically from
+* any other source (including web sites) or distributed to other students.
+*
+* https://www.senecapolytechnic.ca/about/policies/academic-integrity-policy.html
+*
+* Assignment: 2247 / 2
+* Student Name: Ahnaf Abrar Khan
+* Student Email: aakhan82@myseneca.ca
+* Course/Section: WEB422/ZAA
+* Deployment URL: https://www.your.assignment.com
+*
+*****************************************************************************/
+
+#listingsTable tr:hover {
+    cursor: pointer;
+}
