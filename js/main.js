@@ -1,122 +1,164 @@
-// Global variables
+/****************************************************************************
+* I declare that this assignment is my own work in accordance with the Seneca Academic
+* Policy. No part of this assignment has been copied manually or electronically from
+* any other source (including web sites) or distributed to other students.
+*
+* https://www.senecapolytechnic.ca/about/policies/academic-integrity-policy.html
+*
+* Assignment: 2247 / 2
+* Student Name: Ahnaf Abrar Khan
+* Student Email: aakhan82@myseneca.ca
+* Course/Section: WEB422/ZAA
+* Deployment URL: assignment-2-gtyjlb2e5-ahnaf-khans-projects-bd989811.vercel.app
+*
+*****************************************************************************/
+
 let page = 1;
-const perPage = 10;
-let searchName = null;
-const apiUrl = "https://https://assignment-1-five-lime.vercel.app/api/listings";
+const perPage = 15; 
+let searchName = null; 
 
-// Function to load listings data
-function loadListingData() {
-    let url = `${apiUrl}?page=${page}&perPage=${perPage}`;
-    
-    // Add searchName to query if it exists
-    if (searchName) {
-        url += `&name=${searchName}`;
+async function loadListingsData() {
+    try {
+        const apiUrl = `https://assignment-1-five-lime.vercel.app/api/listings?page=${page}&perPage=${perPage}${searchName ? `&name=${searchName}` : ''}`;
+        
+        const response = await fetch(apiUrl);
+        const data = response.ok ? await response.json() : Promise.reject(response.status);
+
+        updateCurrentPageDisplay(); 
+        updateListingsTable(data);
+        
+    } catch (error) {
+        console.error('Error fetching listings:', error);
+        handleNoListings(); 
     }
-
-    // Fetch data from the API
-    fetch(url)
-        .then(res => res.ok ? res.json() : Promise.reject(res.status))
-        .then(data => {
-            const listingsTable = document.querySelector('#listingsTable tbody');
-            listingsTable.innerHTML = ""; // Clear the table content
-
-            // Check if data is available
-            if (data.length) {
-                const rows = data.map(listing => `
-                    <tr data-id="${listing._id}">
-                        <td>${listing.name}</td>
-                        <td>${listing.room_type}</td>
-                        <td>${listing.address.street}, ${listing.address.city}, ${listing.address.country}</td>
-                        <td>
-                            ${listing.summary || ''}<br/><br/>
-                            <strong>Accommodates:</strong> ${listing.accommodates}<br/>
-                            <strong>Rating:</strong> ${listing.review_scores.review_scores_rating || 'N/A'} (${listing.number_of_reviews || 0} Reviews)
-                        </td>
-                    </tr>
-                `).join('');
-                listingsTable.innerHTML = rows;
-
-                // Add click events to newly added <tr> elements
-                document.querySelectorAll('#listingsTable tbody tr').forEach(row => {
-                    row.addEventListener('click', () => {
-                        const listingId = row.getAttribute('data-id');
-                        fetch(`${apiUrl}/${listingId}`)
-                            .then(res => res.ok ? res.json() : Promise.reject(res.status))
-                            .then(data => {
-                                const modalTitle = document.querySelector('#detailsModal .modal-title');
-                                const modalBody = document.querySelector('#detailsModal .modal-body');
-                                
-                                modalTitle.textContent = data.name;
-
-                                modalBody.innerHTML = `
-                                    <img id="photo" class="img-fluid w-100" 
-                                        src="${data.images.picture_url}" 
-                                        onerror="this.onerror=null;this.src='https://placehold.co/600x400?text=Photo+Not+Available'">
-                                    <br/><br/>
-                                    ${data.neighborhood_overview || ''}<br/><br/>
-                                    <strong>Price:</strong> ${data.price.toFixed(2)}<br/>
-                                    <strong>Room:</strong> ${data.room_type}<br/>
-                                    <strong>Bed:</strong> ${data.bed_type} (${data.beds || 1})<br/>
-                                `;
-                                
-                                // Show modal
-                                const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
-                                modal.show();
-                            })
-                            .catch(err => console.error('Error fetching listing details:', err));
-                    });
-                });
-            } else {
-                // No listings available
-                if (page > 1) {
-                    page--; // Prevent paging further
-                    loadListingData();
-                } else {
-                    listingsTable.innerHTML = `<tr><td colspan="4"><strong>No data available</td></tr>`;
-                }
-            }
-
-            // Update current page
-            document.getElementById('current-page').textContent = page;
-        })
-        .catch(err => {
-            console.error('Error fetching listings:', err);
-            const listingsTable = document.querySelector('#listingsTable tbody');
-            listingsTable.innerHTML = `<tr><td colspan="4"><strong>Error fetching data. Please try again later.</td></tr>`;
-        });
 }
 
-// Event listener for previous page button
-document.getElementById('previous-page').addEventListener('click', (e) => {
-    e.preventDefault();
+function updateListingsTable(data) {
+    const listingsTableBody = document.querySelector('#listingsTable tbody');
+    if (Array.isArray(data) && data.length) {
+        listingsTableBody.innerHTML = ''; 
+        const rows = data.map(createListingRow).join('');
+        listingsTableBody.innerHTML = rows; 
+        addRowClickEvents();
+    } else {
+        handleNoListings(); 
+    }
+}
+
+
+function createListingRow(listing) {
+    return `
+        <tr data-id="${listing._id}">
+            <td>${listing.name}</td>
+            <td>${listing.room_type}</td>
+            <td>${listing.address?.street || 'N/A'}</td>
+            <td>${listing.summary || 'Not available'}<br/><br/>
+                <strong>Accommodates:</strong> ${listing.accommodates}<br/>
+                <strong>Rating:</strong> ${listing.review_scores?.review_scores_rating || 'N/A'} (${listing.number_of_reviews || 0} Reviews)
+            </td>
+        </tr>
+    `;
+}
+
+
+function addRowClickEvents() {
+    const rowsElements = document.querySelectorAll('#listingsTable tbody tr');
+    rowsElements.forEach(row => {
+        row.addEventListener('click', () => {
+            const listingId = row.getAttribute('data-id');
+            loadListingDetails(listingId); 
+        });
+    });
+}
+
+
+function updateCurrentPageDisplay() {
+    document.getElementById('current-page').textContent = `Page ${page}`;
+}
+
+
+function handleNoListings() {
     if (page > 1) {
         page--;
-        loadListingData();
+        loadListingsData(); 
+    } else {
+        const listingsTableBody = document.querySelector('#listingsTable tbody');
+        listingsTableBody.innerHTML = '<tr><td colspan="4"><strong>Not available</strong></td></tr>';
     }
+}
+
+
+async function loadListingDetails(listingId) {
+    try {
+        const response = await fetch(`https://assignment-1-five-lime.vercel.app/api/listings/${listingId}`);
+        const listingDetails = response.ok ? await response.json() : Promise.reject(response.status);
+
+        updateModalContent(listingDetails); 
+        showModal(); 
+
+    } catch (error) {
+        console.error('Error', error);
+    }
+}
+
+
+function updateModalContent(listingDetails) {
+    const modalTitle = document.getElementById('detailsModalLabel');
+    const modalBody = document.querySelector('#detailsModal .modal-body');
+
+    modalTitle.textContent = listingDetails.name;
+    modalBody.innerHTML = `
+        <img id="photo" 
+             onerror="this.onerror=null;this.src='https://placehold.co/600x400?text=Photo+Not+Available'" 
+             class="img-fluid w-100"
+             src="${listingDetails.images?.picture_url || 'https://placehold.co/600x400?text=Photo+Not+Available'}">
+        <br/><br/>
+        ${listingDetails.neighborhood_overview || 'Not available'}<br/><br/>
+        <strong>Price:</strong> ${listingDetails.price.toFixed(2)}<br/>
+        <strong>Room:</strong> ${listingDetails.room_type}<br/>
+        <strong>Bed:</strong> ${listingDetails.bed_type || 'N/A'} (${listingDetails.beds || 0})<br/><br/>
+    `;
+}
+
+function showModal() {
+    const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+    modal.show();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadListingsData(); 
+    initializePagination(); 
+    initializeSearch(); 
 });
 
-// Event listener for next page button
-document.getElementById('next-page').addEventListener('click', (e) => {
-    e.preventDefault();
-    page++;
-    loadListingData();
-});
+function initializePagination() {
+    document.getElementById('previous-page').addEventListener('click', (event) => {
+        event.preventDefault();
+        if (page > 1) {
+            page--;
+            loadListingsData();
+        }
+    });
 
-// Event listener for search form submit
-document.getElementById('searchForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    searchName = document.getElementById('name').value;
-    page = 1; // Reset to the first page
-    loadListingData();
-});
+    document.getElementById('next-page').addEventListener('click', (event) => {
+        event.preventDefault();
+        page++;
+        loadListingsData(); 
+    });
+}
 
-// Event listener for clear form button
-document.getElementById('clearForm').addEventListener('click', () => {
-    document.getElementById('name').value = ""; // Clear the search field
-    searchName = null; // Reset the search
-    page = 1; // Reset to the first page
-    loadListingData(); // Reload data without filters
-});
+function initializeSearch() {
+    document.getElementById('searchForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        searchName = document.getElementById('name').value.trim(); 
+        page = 1; 
+        loadListingsData(); 
+    });
 
-// Initial load of listings when DOM is ready
-document.addEventListener('DOMContentLoaded', loadListingData);
+    document.getElementById('clearForm').addEventListener('click', () => {
+        const searchInput = document.getElementById('name');
+        searchInput.value = ''; 
+        searchName = null; 
+        loadListingsData(); 
+    });
+};
